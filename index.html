@@ -5,57 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Protected Content</title>
     <style>
-        body, html {
+        body {
             margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
+            padding: 20px;
             background: #fff;
+            min-height: 100vh;
         }
 
-        .content-container {
-            position: relative;
-            z-index: 1;
-            padding: 20px;
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
         }
 
         #protectionOverlay {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             background: #000;
-            z-index: 2147483646;
+            z-index: 9999;
             display: none;
             pointer-events: none;
-        }
-
-        .protection-active {
-            display: block !important;
-        }
-
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            #protectionOverlay {
-                visibility: visible;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: #000;
-                z-index: 10000;
-            }
         }
     </style>
 </head>
 <body>
-    <div class="content-container" id="mainContent">
-        <h1>Judul Website</h1>
-        <p>Ini adalah contoh konten website yang dilindungi dari screenshot.</p>
+    <div class="content">
+        <h1>Contoh Konten Website</h1>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
         <!-- Tambahkan konten website Anda di sini -->
     </div>
 
@@ -65,70 +44,56 @@
         class ScreenshotProtection {
             constructor() {
                 this.overlay = document.getElementById('protectionOverlay');
-                this.isProtecting = false;
-                this.setupProtection();
+                this.setupListeners();
             }
 
-            protect() {
-                if (!this.isProtecting) {
-                    this.isProtecting = true;
-                    this.overlay.classList.add('protection-active');
+            showProtection() {
+                // Tampilkan overlay hitam
+                this.overlay.style.display = 'block';
+                
+                // Sembunyikan overlay setelah 1 detik
+                setTimeout(() => {
+                    this.overlay.style.display = 'none';
+                }, 1000);
+            }
+
+            setupListeners() {
+                // Deteksi screenshot di desktop
+                document.addEventListener('keydown', (e) => {
+                    // Windows: PrintScreen
+                    if (e.key === 'PrintScreen') {
+                        this.showProtection();
+                    }
                     
-                    // Hapus overlay setelah 500ms
-                    setTimeout(() => {
-                        this.unprotect();
-                    }, 500);
-                }
-            }
-
-            unprotect() {
-                this.isProtecting = false;
-                this.overlay.classList.remove('protection-active');
-            }
-
-            setupProtection() {
-                // Desktop screenshot detection
-                document.addEventListener('keydown', e => {
-                    // Windows: PrintScreen atau Ctrl+Shift+S
-                    // Mac: Cmd+Shift+3 atau Cmd+Shift+4
-                    if (
-                        e.key === 'PrintScreen' ||
-                        (e.ctrlKey && e.shiftKey && e.key === 'S') ||
-                        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))
-                    ) {
-                        this.protect();
+                    // Windows: Ctrl + Shift + S
+                    // Mac: Command + Shift + 3 atau 4
+                    if ((e.ctrlKey || e.metaKey) && e.shiftKey && 
+                        (e.key === 'S' || e.key === '3' || e.key === '4')) {
+                        this.showProtection();
                     }
                 });
 
-                // Mobile screenshot detection (volume + power button)
-                let touchStartTime = 0;
-                document.addEventListener('touchstart', e => {
-                    if (e.touches.length >= 2) {
-                        touchStartTime = Date.now();
+                // Deteksi screenshot di mobile
+                let lastTouchTime = 0;
+                let multiTouchDetected = false;
+
+                document.addEventListener('touchstart', (e) => {
+                    if (e.touches.length > 1) {
+                        multiTouchDetected = true;
+                        lastTouchTime = Date.now();
                     }
                 });
 
                 document.addEventListener('touchend', () => {
-                    if (Date.now() - touchStartTime < 500) {
-                        this.protect();
+                    if (multiTouchDetected && (Date.now() - lastTouchTime) < 500) {
+                        this.showProtection();
                     }
+                    multiTouchDetected = false;
                 });
-
-                // Visibility change detection
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'hidden') {
-                        this.protect();
-                    }
-                });
-
-                // Prevent context menu and selection
-                document.addEventListener('contextmenu', e => e.preventDefault());
-                document.addEventListener('selectstart', e => e.preventDefault());
-                document.addEventListener('copy', e => e.preventDefault());
             }
         }
 
-        // Initialize protection when DOM is loaded
+        // Inisialisasi protection saat dokumen sudah dimuat
         document.addEventListener('DOMContentLoaded', () => {
             new ScreenshotProtection();
         });
