@@ -10,174 +10,234 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            background: #fff;
+            background: #000;
+            overflow: hidden;
         }
 
-        /* Container untuk konten asli */
-        .content-wrapper {
+        .content-container {
             position: relative;
             z-index: 1;
             padding: 20px;
+            background: #fff;
         }
 
-        /* Layer hitam permanen */
-        .black-layer {
+        .protection-frame {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
+            width: 100vw;
+            height: 100vh;
+            border: none;
             z-index: 2147483647;
+            background: transparent;
             pointer-events: none;
         }
 
-        /* Viewport untuk melihat konten */
-        .content-viewport {
+        #mainContent {
+            position: relative;
+            z-index: 1;
+        }
+
+        #protectionOverlay {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
             z-index: 2147483646;
-            background: #fff;
-            transition: opacity 0.01s;
+            display: none;
+            pointer-events: none;
         }
 
-        .hide-content {
-            opacity: 0 !important;
+        .protection-active {
+            display: block !important;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #protectionOverlay {
+                visibility: visible;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: #000;
+                z-index: 10000;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Konten website -->
-    <div class="content-wrapper">
+    <div class="content-container" id="mainContent">
         <h1>Judul Website</h1>
         <p>Ini adalah contoh konten website yang dilindungi dari screenshot.</p>
         <!-- Tambahkan konten website Anda di sini -->
     </div>
 
-    <!-- Viewport untuk melihat konten -->
-    <div id="contentViewport" class="content-viewport"></div>
-    
-    <!-- Layer hitam permanen -->
-    <div class="black-layer"></div>
+    <iframe class="protection-frame" id="protectionFrame"></iframe>
+    <div id="protectionOverlay"></div>
 
     <script>
-        class ScreenshotBlocker {
+        class ExtremeProtection {
             constructor() {
-                this.viewport = document.getElementById('contentViewport');
-                this.content = document.querySelector('.content-wrapper');
-                this.isBlocking = false;
-                this.blockTimeout = null;
+                this.overlay = document.getElementById('protectionOverlay');
+                this.frame = document.getElementById('protectionFrame');
+                this.content = document.getElementById('mainContent');
+                this.isProtecting = false;
+                this.frameDoc = null;
+                this.lastUpdate = Date.now();
+                this.protectionCount = 0;
+                
                 this.init();
             }
 
             init() {
-                // Clone konten ke viewport
-                this.viewport.appendChild(this.content.cloneNode(true));
-                
-                // Sembunyikan konten asli
-                this.content.style.visibility = 'hidden';
-                
-                // Setup event listeners
-                this.setupEventListeners();
-                
-                // Setup interval untuk pemeriksaan berkala
-                this.startPeriodicCheck();
+                this.initFrame();
+                this.setupProtection();
+                this.startContinuousProtection();
             }
 
-            blockScreen() {
-                if (!this.isBlocking) {
-                    this.isBlocking = true;
-                    this.viewport.classList.add('hide-content');
+            initFrame() {
+                this.frameDoc = this.frame.contentDocument || this.frame.contentWindow.document;
+                this.frameDoc.body.style.background = 'transparent';
+            }
 
-                    // Clear existing timeout
-                    if (this.blockTimeout) {
-                        clearTimeout(this.blockTimeout);
+            protect() {
+                if (!this.isProtecting) {
+                    this.isProtecting = true;
+                    this.protectionCount++;
+                    
+                    // Активируем все слои защиты
+                    this.overlay.classList.add('protection-active');
+                    
+                    if (this.frameDoc) {
+                        this.frameDoc.body.style.background = '#000';
+                    }
+                    
+                    // Создаем множественные слои защиты
+                    for (let i = 0; i < 5; i++) {
+                        const tempOverlay = document.createElement('div');
+                        tempOverlay.style.cssText = `
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100vw;
+                            height: 100vh;
+                            background: #000;
+                            z-index: ${2147483647 - i};
+                            pointer-events: none;
+                        `;
+                        document.body.appendChild(tempOverlay);
+                        
+                        setTimeout(() => {
+                            tempOverlay.remove();
+                        }, 100);
                     }
 
-                    // Set block duration
-                    this.blockTimeout = setTimeout(() => {
-                        this.unblockScreen();
-                    }, 1000);
+                    // Быстрое переключение видимости
+                    this.content.style.visibility = 'hidden';
+                    
+                    setTimeout(() => {
+                        this.unprotect();
+                    }, 50);
                 }
             }
 
-            unblockScreen() {
-                this.isBlocking = false;
-                this.viewport.classList.remove('hide-content');
+            unprotect() {
+                this.isProtecting = false;
+                this.overlay.classList.remove('protection-active');
+                
+                if (this.frameDoc) {
+                    this.frameDoc.body.style.background = 'transparent';
+                }
+                
+                this.content.style.visibility = 'visible';
             }
 
-            setupEventListeners() {
-                // Desktop screenshot detections
-                document.addEventListener('keydown', (e) => {
+            setupProtection() {
+                // Desktop screenshot detection
+                document.addEventListener('keydown', e => {
                     if (
                         e.key === 'PrintScreen' ||
-                        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4')) ||
-                        (e.ctrlKey && e.shiftKey && e.key === 'S')
+                        (e.ctrlKey && e.shiftKey && e.key === 'S') ||
+                        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))
                     ) {
-                        this.blockScreen();
+                        this.protect();
                     }
                 });
 
-                // Mobile screenshot detections
-                let touchStartTime = 0;
+                // Mobile screenshot detection
                 let touchCount = 0;
+                let touchTimeout;
 
-                document.addEventListener('touchstart', (e) => {
+                document.addEventListener('touchstart', e => {
                     touchCount = e.touches.length;
-                    touchStartTime = Date.now();
                     if (touchCount >= 2) {
-                        this.blockScreen();
+                        this.protect();
                     }
+                    clearTimeout(touchTimeout);
                 });
 
                 document.addEventListener('touchend', () => {
-                    const touchDuration = Date.now() - touchStartTime;
-                    if (touchDuration < 50) {
-                        this.blockScreen();
-                    }
+                    touchTimeout = setTimeout(() => {
+                        this.protect();
+                    }, 10);
                 });
 
                 // Visibility change detection
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'hidden') {
-                        this.blockScreen();
+                        this.protect();
                     }
                 });
 
-                // Window blur detection
-                window.addEventListener('blur', () => {
-                    this.blockScreen();
-                });
+                // Additional protections
+                window.addEventListener('blur', () => this.protect());
+                window.addEventListener('focus', () => this.unprotect());
+                
+                // Prevent developer tools
+                setInterval(() => {
+                    if (window.outerWidth - window.innerWidth > 160) {
+                        this.protect();
+                    }
+                }, 1000);
             }
 
-            startPeriodicCheck() {
-                setInterval(() => {
-                    if (document.hasFocus()) {
-                        this.unblockScreen();
-                    } else {
-                        this.blockScreen();
+            startContinuousProtection() {
+                // Continuous protection cycle
+                const protectionCycle = () => {
+                    if (Date.now() - this.lastUpdate > 100) {
+                        this.protect();
                     }
-                }, 100);
+                    requestAnimationFrame(protectionCycle);
+                };
+                
+                protectionCycle();
 
-                // Additional check for mobile devices
+                // Additional rapid checks
                 setInterval(() => {
-                    const now = Date.now();
-                    if (now - this.lastInteraction > 300) {
-                        this.blockScreen();
-                        setTimeout(() => {
-                            this.unblockScreen();
-                        }, 100);
-                    }
-                }, 200);
+                    this.protect();
+                    setTimeout(() => this.unprotect(), 10);
+                }, 50);
             }
         }
 
-        // Initialize when DOM is loaded
+        // Initialize protection when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            new ScreenshotBlocker();
+            new ExtremeProtection();
+
+            // Prevent context menu
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            
+            // Prevent selection
+            document.addEventListener('selectstart', e => e.preventDefault());
+            
+            // Prevent copy
+            document.addEventListener('copy', e => e.preventDefault());
         });
     </script>
 </body>
