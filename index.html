@@ -10,32 +10,13 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            background: #000;
-            overflow: hidden;
+            background: #fff;
         }
 
         .content-container {
             position: relative;
             z-index: 1;
             padding: 20px;
-            background: #fff;
-        }
-
-        .protection-frame {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            border: none;
-            z-index: 2147483647;
-            background: transparent;
-            pointer-events: none;
-        }
-
-        #mainContent {
-            position: relative;
-            z-index: 1;
         }
 
         #protectionOverlay {
@@ -78,89 +59,38 @@
         <!-- Tambahkan konten website Anda di sini -->
     </div>
 
-    <iframe class="protection-frame" id="protectionFrame"></iframe>
     <div id="protectionOverlay"></div>
 
     <script>
-        class ExtremeProtection {
+        class ScreenshotProtection {
             constructor() {
                 this.overlay = document.getElementById('protectionOverlay');
-                this.frame = document.getElementById('protectionFrame');
-                this.content = document.getElementById('mainContent');
                 this.isProtecting = false;
-                this.frameDoc = null;
-                this.lastUpdate = Date.now();
-                this.protectionCount = 0;
-                
-                this.init();
-            }
-
-            init() {
-                this.initFrame();
                 this.setupProtection();
-                this.startContinuousProtection();
-            }
-
-            initFrame() {
-                this.frameDoc = this.frame.contentDocument || this.frame.contentWindow.document;
-                this.frameDoc.body.style.background = 'transparent';
             }
 
             protect() {
                 if (!this.isProtecting) {
                     this.isProtecting = true;
-                    this.protectionCount++;
-                    
-                    // Активируем все слои защиты
                     this.overlay.classList.add('protection-active');
                     
-                    if (this.frameDoc) {
-                        this.frameDoc.body.style.background = '#000';
-                    }
-                    
-                    // Создаем множественные слои защиты
-                    for (let i = 0; i < 5; i++) {
-                        const tempOverlay = document.createElement('div');
-                        tempOverlay.style.cssText = `
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100vw;
-                            height: 100vh;
-                            background: #000;
-                            z-index: ${2147483647 - i};
-                            pointer-events: none;
-                        `;
-                        document.body.appendChild(tempOverlay);
-                        
-                        setTimeout(() => {
-                            tempOverlay.remove();
-                        }, 100);
-                    }
-
-                    // Быстрое переключение видимости
-                    this.content.style.visibility = 'hidden';
-                    
+                    // Hapus overlay setelah 500ms
                     setTimeout(() => {
                         this.unprotect();
-                    }, 50);
+                    }, 500);
                 }
             }
 
             unprotect() {
                 this.isProtecting = false;
                 this.overlay.classList.remove('protection-active');
-                
-                if (this.frameDoc) {
-                    this.frameDoc.body.style.background = 'transparent';
-                }
-                
-                this.content.style.visibility = 'visible';
             }
 
             setupProtection() {
                 // Desktop screenshot detection
                 document.addEventListener('keydown', e => {
+                    // Windows: PrintScreen atau Ctrl+Shift+S
+                    // Mac: Cmd+Shift+3 atau Cmd+Shift+4
                     if (
                         e.key === 'PrintScreen' ||
                         (e.ctrlKey && e.shiftKey && e.key === 'S') ||
@@ -170,22 +100,18 @@
                     }
                 });
 
-                // Mobile screenshot detection
-                let touchCount = 0;
-                let touchTimeout;
-
+                // Mobile screenshot detection (volume + power button)
+                let touchStartTime = 0;
                 document.addEventListener('touchstart', e => {
-                    touchCount = e.touches.length;
-                    if (touchCount >= 2) {
-                        this.protect();
+                    if (e.touches.length >= 2) {
+                        touchStartTime = Date.now();
                     }
-                    clearTimeout(touchTimeout);
                 });
 
                 document.addEventListener('touchend', () => {
-                    touchTimeout = setTimeout(() => {
+                    if (Date.now() - touchStartTime < 500) {
                         this.protect();
-                    }, 10);
+                    }
                 });
 
                 // Visibility change detection
@@ -195,49 +121,16 @@
                     }
                 });
 
-                // Additional protections
-                window.addEventListener('blur', () => this.protect());
-                window.addEventListener('focus', () => this.unprotect());
-                
-                // Prevent developer tools
-                setInterval(() => {
-                    if (window.outerWidth - window.innerWidth > 160) {
-                        this.protect();
-                    }
-                }, 1000);
-            }
-
-            startContinuousProtection() {
-                // Continuous protection cycle
-                const protectionCycle = () => {
-                    if (Date.now() - this.lastUpdate > 100) {
-                        this.protect();
-                    }
-                    requestAnimationFrame(protectionCycle);
-                };
-                
-                protectionCycle();
-
-                // Additional rapid checks
-                setInterval(() => {
-                    this.protect();
-                    setTimeout(() => this.unprotect(), 10);
-                }, 50);
+                // Prevent context menu and selection
+                document.addEventListener('contextmenu', e => e.preventDefault());
+                document.addEventListener('selectstart', e => e.preventDefault());
+                document.addEventListener('copy', e => e.preventDefault());
             }
         }
 
         // Initialize protection when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            new ExtremeProtection();
-
-            // Prevent context menu
-            document.addEventListener('contextmenu', e => e.preventDefault());
-            
-            // Prevent selection
-            document.addEventListener('selectstart', e => e.preventDefault());
-            
-            // Prevent copy
-            document.addEventListener('copy', e => e.preventDefault());
+            new ScreenshotProtection();
         });
     </script>
 </body>
