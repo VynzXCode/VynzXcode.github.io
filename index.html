@@ -19,6 +19,8 @@
         .content {
             max-width: 800px;
             margin: 0 auto;
+            position: relative;
+            z-index: 1;
         }
 
         #protectionOverlay {
@@ -31,27 +33,39 @@
             z-index: 2147483647;
             display: none;
             pointer-events: none;
-            opacity: 1;
-            transition: opacity 0.1s ease;
+        }
+
+        /* Tambahan layer protection */
+        .protection-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 2147483646;
+            pointer-events: none;
         }
 
         @media print {
             body * {
-                visibility: hidden;
+                visibility: hidden !important;
             }
             #protectionOverlay {
-                visibility: visible;
+                visibility: visible !important;
                 display: block !important;
             }
         }
     </style>
 </head>
 <body>
+    <!-- Layer protection tambahan -->
+    <div class="protection-layer"></div>
+    
     <div class="content">
         <h1>Contoh Konten Website</h1>
         <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
         <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-        <!-- Tambahkan konten website Anda di sini -->
     </div>
 
     <div id="protectionOverlay"></div>
@@ -61,127 +75,124 @@
             constructor() {
                 this.overlay = document.getElementById('protectionOverlay');
                 this.isProtecting = false;
-                this.lastVolumePress = 0;
-                this.lastPowerPress = 0;
+                this.volumeDownPressed = false;
+                this.powerPressed = false;
+                this.lastVolumeTime = 0;
+                this.lastPowerTime = 0;
+                this.protectionInterval = null;
                 this.setupProtection();
             }
 
-            protect() {
-                if (!this.isProtecting) {
-                    this.isProtecting = true;
-                    this.overlay.style.display = 'block';
-                    this.overlay.style.opacity = '1';
+            showProtection() {
+                this.overlay.style.display = 'block';
+                // Tambahkan delay kecil untuk memastikan overlay muncul
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        this.hideProtection();
+                    });
+                });
+            }
 
-                    setTimeout(() => {
-                        this.overlay.style.opacity = '0';
-                        setTimeout(() => {
-                            this.overlay.style.display = 'none';
-                            this.isProtecting = false;
-                        }, 100);
-                    }, 1000);
+            hideProtection() {
+                setTimeout(() => {
+                    this.overlay.style.display = 'none';
+                }, 300);
+            }
+
+            // Fungsi untuk memulai continuous protection
+            startContinuousProtection() {
+                if (this.protectionInterval) return;
+                
+                this.protectionInterval = setInterval(() => {
+                    this.showProtection();
+                }, 100);
+
+                // Hentikan setelah 1 detik
+                setTimeout(() => {
+                    this.stopContinuousProtection();
+                }, 1000);
+            }
+
+            stopContinuousProtection() {
+                if (this.protectionInterval) {
+                    clearInterval(this.protectionInterval);
+                    this.protectionInterval = null;
                 }
             }
 
             setupProtection() {
-                // Windows PrintScreen detection
+                // Deteksi tombol volume
+                window.addEventListener('volumechange', () => {
+                    this.volumeDownPressed = true;
+                    this.lastVolumeTime = Date.now();
+                    
+                    if (this.powerPressed || 
+                        Date.now() - this.lastPowerTime < 1000) {
+                        this.startContinuousProtection();
+                    }
+                });
+
+                // Deteksi screen lock/power button
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'hidden') {
+                        this.powerPressed = true;
+                        this.lastPowerTime = Date.now();
+                        
+                        if (this.volumeDownPressed || 
+                            Date.now() - this.lastVolumeTime < 1000) {
+                            this.startContinuousProtection();
+                        }
+                    }
+                });
+
+                // Reset status tombol
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        setTimeout(() => {
+                            this.volumeDownPressed = false;
+                            this.powerPressed = false;
+                        }, 1000);
+                    }
+                });
+
+                // Deteksi PrintScreen di Windows
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'PrintScreen' || 
                         e.code === 'PrintScreen' || 
                         (e.key === 'PrintScreen' && e.getModifierState('Meta'))) {
-                        e.preventDefault();
-                        this.protect();
+                        this.startContinuousProtection();
                     }
                 });
 
-                // Mobile screenshot detection
-                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    // Power button event (screen lock)
-                    document.addEventListener('visibilitychange', () => {
-                        const now = Date.now();
-                        if (document.visibilityState === 'hidden') {
-                            this.lastPowerPress = now;
-                        } else if (now - this.lastVolumePress < 1000) {
-                            this.protect();
-                        }
-                    });
-
-                    // Volume button events
-                    window.addEventListener('volumechange', () => {
-                        const now = Date.now();
-                        this.lastVolumePress = now;
-                        if (now - this.lastPowerPress < 1000) {
-                            this.protect();
-                        }
-                    });
-
-                    // Additional detection for volume + power combination
-                    let lastKeyTime = 0;
-                    let powerPressed = false;
-                    let volumePressed = false;
-
-                    document.addEventListener('keydown', (e) => {
-                        const now = Date.now();
-                        if (e.key === 'Power' || e.key === 'Sleep') {
-                            powerPressed = true;
-                            lastKeyTime = now;
-                        }
-                        if (e.key === 'VolumeDown') {
-                            volumePressed = true;
-                            lastKeyTime = now;
-                        }
-                        if (powerPressed && volumePressed && (now - lastKeyTime < 500)) {
-                            this.protect();
-                        }
-                    });
-
-                    document.addEventListener('keyup', () => {
-                        powerPressed = false;
-                        volumePressed = false;
-                    });
-
-                    // Three finger swipe detection
-                    let touchStartY = 0;
-                    document.addEventListener('touchstart', (e) => {
-                        if (e.touches.length >= 3) {
-                            touchStartY = e.touches[0].clientY;
-                        }
-                    });
-
-                    document.addEventListener('touchmove', (e) => {
-                        if (e.touches.length >= 3) {
-                            const deltaY = e.touches[0].clientY - touchStartY;
-                            if (Math.abs(deltaY) > 50) {
-                                this.protect();
-                            }
-                        }
-                    });
-
-                    // Screen capture API detection (if available)
-                    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-                        navigator.mediaDevices.getDisplayMedia = new Proxy(
-                            navigator.mediaDevices.getDisplayMedia,
-                            {
-                                apply: (target, thisArg, args) => {
-                                    this.protect();
-                                    return target.apply(thisArg, args);
-                                }
-                            }
-                        );
+                // Deteksi gesture 3 jari
+                let touchCount = 0;
+                document.addEventListener('touchstart', (e) => {
+                    touchCount = e.touches.length;
+                    if (touchCount >= 3) {
+                        this.startContinuousProtection();
                     }
-                }
+                });
 
-                // Prevent standard ways to capture content
+                // Tambahan detection untuk iOS
+                window.addEventListener('resize', () => {
+                    if (this.volumeDownPressed || this.powerPressed) {
+                        this.startContinuousProtection();
+                    }
+                });
+
+                // Prevent standard capture methods
                 document.addEventListener('contextmenu', e => e.preventDefault());
                 document.addEventListener('selectstart', e => e.preventDefault());
                 document.addEventListener('copy', e => e.preventDefault());
-                document.addEventListener('dragstart', e => e.preventDefault());
                 
-                // Additional mobile-specific events
-                window.addEventListener('resize', () => {
-                    if (document.visibilityState === 'hidden') {
-                        this.protect();
-                    }
-                });
+                // Continuous monitoring untuk mobile
+                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                    setInterval(() => {
+                        if (this.volumeDownPressed && this.powerPressed) {
+                            this.startContinuousProtection();
+                        }
+                    }, 50);
+                }
             }
         }
 
