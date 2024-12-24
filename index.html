@@ -55,7 +55,7 @@
             left: -100%;
             width: 300%;
             height: 300%;
-            background: #000;
+            background: black;
             z-index: 2147483647;
             display: none;
             pointer-events: none;
@@ -99,7 +99,7 @@
 
     <div class="safe-container">
         <div class="content">
-            <h1>Contoh Konten Website</h1>
+            <h1>Protected Content</h1>
             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
             <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
         </div>
@@ -122,8 +122,8 @@
                 if (!this.isProtecting) {
                     this.isProtecting = true;
                     this.overlay.style.display = 'block';
-                    
-                    // Rapidly toggle overlay untuk memastikan tertangkap
+
+                    // Rapidly toggle overlay to ensure it gets captured
                     let toggleCount = 0;
                     const rapidToggle = setInterval(() => {
                         this.overlay.style.display = toggleCount % 2 === 0 ? 'none' : 'block';
@@ -131,7 +131,7 @@
                         if (toggleCount > 10) clearInterval(rapidToggle);
                     }, 16);
 
-                    // Clear protection setelah 1 detik
+                    // Clear protection after 1 second
                     clearTimeout(this.protectionTimeout);
                     this.protectionTimeout = setTimeout(() => {
                         this.deactivateProtection();
@@ -147,7 +147,7 @@
             startConstantMonitoring() {
                 if (this.monitoringInterval) clearInterval(this.monitoringInterval);
 
-                // Monitor setiap 16ms (60fps)
+                // Monitor every 16ms (60fps)
                 this.monitoringInterval = setInterval(() => {
                     if (this.shouldActivateProtection()) {
                         this.activateProtection();
@@ -156,7 +156,7 @@
             }
 
             shouldActivateProtection() {
-                // Deteksi berbagai kondisi yang mungkin mengindikasikan screenshot
+                // Detect conditions that may indicate a screenshot
                 const conditions = [
                     document.hidden,
                     document.msHidden,
@@ -190,8 +190,8 @@
                             (e.type === 'keydown' && (
                                 e.key === 'PrintScreen' ||
                                 e.code === 'PrintScreen' ||
-                                (e.ctrlKey && e.shift && e.key === 'S') ||
-                                (e.metaKey && e.shift && (e.key === '3' || e.key === '4'))
+                                (e.ctrlKey && e.shiftKey && e.key === 'S') ||
+                                (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))
                             )) ||
                             (e.type === 'visibilitychange' && document.hidden) ||
                             (e.type === 'touchstart' && e.touches.length >= 2)
@@ -222,7 +222,7 @@
                             this.activateProtection();
                         }
                         lastVolume = now;
-                        
+
                         clearTimeout(volumeTimeout);
                         volumeTimeout = setTimeout(() => {
                             lastVolume = null;
@@ -230,7 +230,7 @@
                     });
                 }
 
-                // MutationObserver untuk mendeteksi perubahan DOM
+                // MutationObserver to detect DOM changes
                 const observer = new MutationObserver(() => {
                     if (this.shouldActivateProtection()) {
                         this.activateProtection();
@@ -250,7 +250,7 @@
             window.screenshotProtection = new AdvancedScreenshotProtection();
         });
 
-        // Tambahan untuk memastikan protection tetap aktif
+        // Ensure protection remains active
         setInterval(() => {
             if (window.screenshotProtection) {
                 window.screenshotProtection.startConstantMonitoring();
