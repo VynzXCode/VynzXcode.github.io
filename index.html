@@ -5,172 +5,179 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Protected Content</title>
     <style>
-        /* Base styling */
-        body {
+        body, html {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
             background: #fff;
         }
 
-        /* Container untuk konten */
-        .content-container {
+        /* Container untuk konten asli */
+        .content-wrapper {
             position: relative;
+            z-index: 1;
             padding: 20px;
-            background: #fff;
         }
 
-        /* Layer proteksi utama */
-        .protection-layer {
+        /* Layer hitam permanen */
+        .black-layer {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             background: #000;
-            z-index: 2147483647; /* Maksimum z-index */
-            opacity: 0;
+            z-index: 2147483647;
             pointer-events: none;
+        }
+
+        /* Viewport untuk melihat konten */
+        .content-viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2147483646;
+            background: #fff;
             transition: opacity 0.01s;
         }
 
-        /* Class yang ditambahkan saat screenshot terdeteksi */
-        .screenshot-triggered {
-            opacity: 1 !important;
-        }
-
-        /* Mencegah seleksi teks */
-        * {
-            -webkit-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-
-        /* CSS untuk konten Anda */
-        .your-content {
-            position: relative;
-            z-index: 1;
+        .hide-content {
+            opacity: 0 !important;
         }
     </style>
 </head>
 <body>
-    <!-- Layer proteksi -->
-    <div id="protectionLayer" class="protection-layer"></div>
-
-    <!-- Container untuk konten website -->
-    <div class="content-container">
-        <div class="your-content">
-            <h1>Judul Website</h1>
-            <p>Ini adalah contoh konten website yang dilindungi dari screenshot.</p>
-            <!-- Tambahkan konten website Anda di sini -->
-        </div>
+    <!-- Konten website -->
+    <div class="content-wrapper">
+        <h1>Judul Website</h1>
+        <p>Ini adalah contoh konten website yang dilindungi dari screenshot.</p>
+        <!-- Tambahkan konten website Anda di sini -->
     </div>
 
+    <!-- Viewport untuk melihat konten -->
+    <div id="contentViewport" class="content-viewport"></div>
+    
+    <!-- Layer hitam permanen -->
+    <div class="black-layer"></div>
+
     <script>
-        class AggressiveScreenshotProtection {
+        class ScreenshotBlocker {
             constructor() {
-                this.protectionLayer = document.getElementById('protectionLayer');
-                this.isProtecting = false;
-                this.protectionTimeout = null;
+                this.viewport = document.getElementById('contentViewport');
+                this.content = document.querySelector('.content-wrapper');
+                this.isBlocking = false;
+                this.blockTimeout = null;
                 this.init();
             }
 
             init() {
-                // Mendeteksi berbagai event yang mungkin terkait screenshot
-                this.detectScreenshotAttempts();
+                // Clone konten ke viewport
+                this.viewport.appendChild(this.content.cloneNode(true));
                 
-                // Tambahan proteksi untuk mobile
-                this.detectMobileScreenshot();
+                // Sembunyikan konten asli
+                this.content.style.visibility = 'hidden';
                 
-                // Proteksi saat tab tidak aktif
-                this.detectTabChange();
+                // Setup event listeners
+                this.setupEventListeners();
+                
+                // Setup interval untuk pemeriksaan berkala
+                this.startPeriodicCheck();
             }
 
-            protect() {
-                if (!this.isProtecting) {
-                    this.isProtecting = true;
-                    this.protectionLayer.classList.add('screenshot-triggered');
+            blockScreen() {
+                if (!this.isBlocking) {
+                    this.isBlocking = true;
+                    this.viewport.classList.add('hide-content');
 
                     // Clear existing timeout
-                    if (this.protectionTimeout) {
-                        clearTimeout(this.protectionTimeout);
+                    if (this.blockTimeout) {
+                        clearTimeout(this.blockTimeout);
                     }
 
-                    // Set protection duration longer
-                    this.protectionTimeout = setTimeout(() => {
-                        this.unprotect();
-                    }, 500); // Increased duration to ensure screenshot catches black screen
+                    // Set block duration
+                    this.blockTimeout = setTimeout(() => {
+                        this.unblockScreen();
+                    }, 1000);
                 }
             }
 
-            unprotect() {
-                this.isProtecting = false;
-                this.protectionLayer.classList.remove('screenshot-triggered');
+            unblockScreen() {
+                this.isBlocking = false;
+                this.viewport.classList.remove('hide-content');
             }
 
-            detectScreenshotAttempts() {
-                // Keyboard shortcuts
+            setupEventListeners() {
+                // Desktop screenshot detections
                 document.addEventListener('keydown', (e) => {
-                    // Windows: PrintScreen
-                    // Mac: Cmd+Shift+3, Cmd+Shift+4
-                    // Linux: PrintScreen
                     if (
                         e.key === 'PrintScreen' ||
                         (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4')) ||
                         (e.ctrlKey && e.shiftKey && e.key === 'S')
                     ) {
-                        this.protect();
+                        this.blockScreen();
                     }
                 });
 
-                // Window blur events
-                window.addEventListener('blur', () => this.protect());
-                window.addEventListener('focus', () => this.unprotect());
-            }
+                // Mobile screenshot detections
+                let touchStartTime = 0;
+                let touchCount = 0;
 
-            detectMobileScreenshot() {
-                // iOS gesture (volume + power button)
                 document.addEventListener('touchstart', (e) => {
-                    if (e.touches.length >= 2) {
-                        this.protect();
+                    touchCount = e.touches.length;
+                    touchStartTime = Date.now();
+                    if (touchCount >= 2) {
+                        this.blockScreen();
                     }
                 });
 
-                // Android gesture detection
-                let lastTouchEnd = 0;
-                document.addEventListener('touchend', (e) => {
-                    const now = Date.now();
-                    if (now - lastTouchEnd <= 300) {
-                        this.protect();
+                document.addEventListener('touchend', () => {
+                    const touchDuration = Date.now() - touchStartTime;
+                    if (touchDuration < 50) {
+                        this.blockScreen();
                     }
-                    lastTouchEnd = now;
                 });
-            }
 
-            detectTabChange() {
+                // Visibility change detection
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'hidden') {
-                        this.protect();
-                    } else {
-                        this.unprotect();
+                        this.blockScreen();
                     }
                 });
+
+                // Window blur detection
+                window.addEventListener('blur', () => {
+                    this.blockScreen();
+                });
+            }
+
+            startPeriodicCheck() {
+                setInterval(() => {
+                    if (document.hasFocus()) {
+                        this.unblockScreen();
+                    } else {
+                        this.blockScreen();
+                    }
+                }, 100);
+
+                // Additional check for mobile devices
+                setInterval(() => {
+                    const now = Date.now();
+                    if (now - this.lastInteraction > 300) {
+                        this.blockScreen();
+                        setTimeout(() => {
+                            this.unblockScreen();
+                        }, 100);
+                    }
+                }, 200);
             }
         }
 
-        // Initialize protection when DOM is loaded
+        // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            new AggressiveScreenshotProtection();
-
-            // Tambahan: refresh halaman setiap 100ms untuk memastikan layer proteksi selalu aktif
-            setInterval(() => {
-                const protectionLayer = document.getElementById('protectionLayer');
-                if (!protectionLayer.classList.contains('screenshot-triggered')) {
-                    protectionLayer.style.display = 'none';
-                    setTimeout(() => {
-                        protectionLayer.style.display = 'block';
-                    }, 1);
-                }
-            }, 100);
+            new ScreenshotBlocker();
         });
     </script>
 </body>
