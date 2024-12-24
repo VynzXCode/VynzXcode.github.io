@@ -7,44 +7,76 @@
     <style>
         body {
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background: #fff;
             min-height: 100vh;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
+            overflow-x: hidden;
+        }
+
+        .safe-container {
+            position: relative;
+            z-index: 1;
+            padding: 20px;
         }
 
         .content {
-            max-width: 800px;
-            margin: 0 auto;
             position: relative;
             z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
         }
 
-        #protectionOverlay {
+        /* Protection layers */
+        .protection-wrapper {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            z-index: 2147483647;
-            display: none;
+            width: 100vw;
+            height: 100vh;
             pointer-events: none;
+            z-index: 2147483646;
         }
 
-        /* Tambahan layer protection */
         .protection-layer {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background: transparent;
             z-index: 2147483646;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
+        #protectionOverlay {
+            position: fixed;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: #000;
+            z-index: 2147483647;
+            display: none;
             pointer-events: none;
+            transform: translateZ(0);
+            will-change: transform;
+            transition: none;
+        }
+
+        .screenshot-protected {
+            position: relative;
+        }
+
+        .screenshot-protected::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 2147483645;
         }
 
         @media print {
@@ -58,148 +90,172 @@
         }
     </style>
 </head>
-<body>
-    <!-- Layer protection tambahan -->
-    <div class="protection-layer"></div>
-    
-    <div class="content">
-        <h1>Contoh Konten Website</h1>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+<body class="screenshot-protected">
+    <div class="protection-wrapper">
+        <div class="protection-layer"></div>
+        <div class="protection-layer"></div>
+        <div class="protection-layer"></div>
+    </div>
+
+    <div class="safe-container">
+        <div class="content">
+            <h1>Contoh Konten Website</h1>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+        </div>
     </div>
 
     <div id="protectionOverlay"></div>
 
     <script>
-        class ScreenshotProtection {
+        class AdvancedScreenshotProtection {
             constructor() {
                 this.overlay = document.getElementById('protectionOverlay');
                 this.isProtecting = false;
-                this.volumeDownPressed = false;
-                this.powerPressed = false;
-                this.lastVolumeTime = 0;
-                this.lastPowerTime = 0;
-                this.protectionInterval = null;
+                this.protectionTimeout = null;
+                this.monitoringInterval = null;
                 this.setupProtection();
+                this.startConstantMonitoring();
             }
 
-            showProtection() {
-                this.overlay.style.display = 'block';
-                // Tambahkan delay kecil untuk memastikan overlay muncul
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        this.hideProtection();
-                    });
-                });
-            }
+            activateProtection() {
+                if (!this.isProtecting) {
+                    this.isProtecting = true;
+                    this.overlay.style.display = 'block';
+                    
+                    // Rapidly toggle overlay untuk memastikan tertangkap
+                    let toggleCount = 0;
+                    const rapidToggle = setInterval(() => {
+                        this.overlay.style.display = toggleCount % 2 === 0 ? 'none' : 'block';
+                        toggleCount++;
+                        if (toggleCount > 10) clearInterval(rapidToggle);
+                    }, 16);
 
-            hideProtection() {
-                setTimeout(() => {
-                    this.overlay.style.display = 'none';
-                }, 300);
-            }
-
-            // Fungsi untuk memulai continuous protection
-            startContinuousProtection() {
-                if (this.protectionInterval) return;
-                
-                this.protectionInterval = setInterval(() => {
-                    this.showProtection();
-                }, 100);
-
-                // Hentikan setelah 1 detik
-                setTimeout(() => {
-                    this.stopContinuousProtection();
-                }, 1000);
-            }
-
-            stopContinuousProtection() {
-                if (this.protectionInterval) {
-                    clearInterval(this.protectionInterval);
-                    this.protectionInterval = null;
+                    // Clear protection setelah 1 detik
+                    clearTimeout(this.protectionTimeout);
+                    this.protectionTimeout = setTimeout(() => {
+                        this.deactivateProtection();
+                    }, 1000);
                 }
+            }
+
+            deactivateProtection() {
+                this.isProtecting = false;
+                this.overlay.style.display = 'none';
+            }
+
+            startConstantMonitoring() {
+                if (this.monitoringInterval) clearInterval(this.monitoringInterval);
+
+                // Monitor setiap 16ms (60fps)
+                this.monitoringInterval = setInterval(() => {
+                    if (this.shouldActivateProtection()) {
+                        this.activateProtection();
+                    }
+                }, 16);
+            }
+
+            shouldActivateProtection() {
+                // Deteksi berbagai kondisi yang mungkin mengindikasikan screenshot
+                const conditions = [
+                    document.hidden,
+                    document.msHidden,
+                    document.webkitHidden,
+                    window.outerWidth - window.innerWidth > 200,
+                    window.outerHeight - window.innerHeight > 200,
+                    document.visibilityState === 'hidden'
+                ];
+
+                return conditions.some(condition => condition);
             }
 
             setupProtection() {
-                // Deteksi tombol volume
-                window.addEventListener('volumechange', () => {
-                    this.volumeDownPressed = true;
-                    this.lastVolumeTime = Date.now();
-                    
-                    if (this.powerPressed || 
-                        Date.now() - this.lastPowerTime < 1000) {
-                        this.startContinuousProtection();
-                    }
+                // Screenshot detection
+                const events = [
+                    'keydown', 'keyup', 'visibilitychange',
+                    'webkitvisibilitychange', 'mozvisibilitychange',
+                    'focus', 'blur', 'resize', 'contextmenu',
+                    'touchstart', 'touchend'
+                ];
+
+                events.forEach(event => {
+                    document.addEventListener(event, (e) => {
+                        // Prevent default for certain events
+                        if (['contextmenu', 'selectstart', 'copy'].includes(e.type)) {
+                            e.preventDefault();
+                        }
+
+                        // Screenshot detection logic
+                        if (
+                            (e.type === 'keydown' && (
+                                e.key === 'PrintScreen' ||
+                                e.code === 'PrintScreen' ||
+                                (e.ctrlKey && e.shift && e.key === 'S') ||
+                                (e.metaKey && e.shift && (e.key === '3' || e.key === '4'))
+                            )) ||
+                            (e.type === 'visibilitychange' && document.hidden) ||
+                            (e.type === 'touchstart' && e.touches.length >= 2)
+                        ) {
+                            this.activateProtection();
+                        }
+                    }, true);
                 });
 
-                // Deteksi screen lock/power button
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'hidden') {
-                        this.powerPressed = true;
-                        this.lastPowerTime = Date.now();
-                        
-                        if (this.volumeDownPressed || 
-                            Date.now() - this.lastVolumeTime < 1000) {
-                            this.startContinuousProtection();
+                // Prevent various capture methods
+                document.addEventListener('keydown', e => {
+                    if (e.ctrlKey || e.metaKey) {
+                        if (['s', 'p', 'c', 'x', 'u', 'i'].includes(e.key.toLowerCase())) {
+                            e.preventDefault();
                         }
                     }
                 });
 
-                // Reset status tombol
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') {
-                        setTimeout(() => {
-                            this.volumeDownPressed = false;
-                            this.powerPressed = false;
-                        }, 1000);
-                    }
-                });
-
-                // Deteksi PrintScreen di Windows
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'PrintScreen' || 
-                        e.code === 'PrintScreen' || 
-                        (e.key === 'PrintScreen' && e.getModifierState('Meta'))) {
-                        this.startContinuousProtection();
-                    }
-                });
-
-                // Deteksi gesture 3 jari
-                let touchCount = 0;
-                document.addEventListener('touchstart', (e) => {
-                    touchCount = e.touches.length;
-                    if (touchCount >= 3) {
-                        this.startContinuousProtection();
-                    }
-                });
-
-                // Tambahan detection untuk iOS
-                window.addEventListener('resize', () => {
-                    if (this.volumeDownPressed || this.powerPressed) {
-                        this.startContinuousProtection();
-                    }
-                });
-
-                // Prevent standard capture methods
-                document.addEventListener('contextmenu', e => e.preventDefault());
-                document.addEventListener('selectstart', e => e.preventDefault());
-                document.addEventListener('copy', e => e.preventDefault());
-                
-                // Continuous monitoring untuk mobile
+                // Mobile-specific detection
                 if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    setInterval(() => {
-                        if (this.volumeDownPressed && this.powerPressed) {
-                            this.startContinuousProtection();
+                    let lastVolume = null;
+                    let volumeTimeout;
+
+                    // Volume button detection
+                    window.addEventListener('volumechange', () => {
+                        const now = Date.now();
+                        if (lastVolume && now - lastVolume < 500) {
+                            this.activateProtection();
                         }
-                    }, 50);
+                        lastVolume = now;
+                        
+                        clearTimeout(volumeTimeout);
+                        volumeTimeout = setTimeout(() => {
+                            lastVolume = null;
+                        }, 500);
+                    });
                 }
+
+                // MutationObserver untuk mendeteksi perubahan DOM
+                const observer = new MutationObserver(() => {
+                    if (this.shouldActivateProtection()) {
+                        this.activateProtection();
+                    }
+                });
+
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true
+                });
             }
         }
 
         // Initialize protection
         document.addEventListener('DOMContentLoaded', () => {
-            new ScreenshotProtection();
+            window.screenshotProtection = new AdvancedScreenshotProtection();
         });
+
+        // Tambahan untuk memastikan protection tetap aktif
+        setInterval(() => {
+            if (window.screenshotProtection) {
+                window.screenshotProtection.startConstantMonitoring();
+            }
+        }, 100);
     </script>
 </body>
 </html>
