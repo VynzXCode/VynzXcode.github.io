@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Protected Content</title>
+    <title>Screenshot Protection</title>
     <style>
         body {
             margin: 0;
@@ -13,174 +13,80 @@
             overflow-x: hidden;
         }
 
-        .safe-container {
-            position: relative;
-            z-index: 1;
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
             padding: 20px;
         }
 
-        .content {
-            position: relative;
-            z-index: 1;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        /* Protection layers */
-        .protection-wrapper {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 2147483646;
-        }
-
-        .protection-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: transparent;
-            z-index: 2147483646;
-            transform: translateZ(0);
-            backface-visibility: hidden;
-        }
-
-        #protectionOverlay {
+        #overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
             background: black;
-            z-index: 2147483647;
             display: none;
-            pointer-events: none;
-        }
-
-        .screenshot-protected {
-            position: relative;
+            z-index: 9999;
         }
 
         @media print {
             body * {
                 visibility: hidden !important;
             }
-            #protectionOverlay {
+
+            #overlay {
                 visibility: visible !important;
                 display: block !important;
             }
         }
     </style>
 </head>
-<body class="screenshot-protected">
-    <div class="protection-wrapper">
-        <div class="protection-layer"></div>
-        <div class="protection-layer"></div>
-        <div class="protection-layer"></div>
+<body>
+    <div id="overlay"></div>
+    <div class="content">
+        <h1>Protected Content</h1>
+        <p>This content is protected and should not appear in screenshots.</p>
     </div>
-
-    <div class="safe-container">
-        <div class="content">
-            <h1>Protected Content</h1>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-            <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-        </div>
-    </div>
-
-    <div id="protectionOverlay"></div>
 
     <script>
-        class AdvancedScreenshotProtection {
-            constructor() {
-                this.overlay = document.getElementById('protectionOverlay');
-                this.isProtecting = false;
-                this.setupProtection();
-                this.startMonitoring();
-            }
+        const overlay = document.getElementById('overlay');
 
-            activateProtection() {
-                if (!this.isProtecting) {
-                    this.isProtecting = true;
-                    this.overlay.style.display = 'block';
-                }
-            }
-
-            deactivateProtection() {
-                if (this.isProtecting) {
-                    this.isProtecting = false;
-                    this.overlay.style.display = 'none';
-                }
-            }
-
-            startMonitoring() {
-                const events = [
-                    'keydown', 'keyup', 'visibilitychange',
-                    'webkitvisibilitychange', 'mozvisibilitychange',
-                    'focus', 'blur', 'resize', 'contextmenu',
-                    'touchstart', 'touchend'
-                ];
-
-                events.forEach(event => {
-                    document.addEventListener(event, (e) => {
-                        // Detect screenshot attempts
-                        if (
-                            (e.type === 'keydown' && (
-                                e.key === 'PrintScreen' ||
-                                e.code === 'PrintScreen' ||
-                                (e.ctrlKey && e.shiftKey && e.key === 'S') ||
-                                (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))
-                            )) ||
-                            (e.type === 'visibilitychange' && document.hidden)
-                        ) {
-                            this.activateProtection();
-                        }
-                    }, true);
-                });
-
-                document.addEventListener('keyup', (e) => {
-                    if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
-                        this.activateProtection();
-                        setTimeout(() => this.deactivateProtection(), 1000);
-                    }
-                });
-
-                window.addEventListener('blur', () => {
-                    this.activateProtection();
-                    setTimeout(() => this.deactivateProtection(), 1000);
-                });
-
-                document.addEventListener('visibilitychange', () => {
-                    if (document.hidden) {
-                        this.activateProtection();
-                    } else {
-                        this.deactivateProtection();
-                    }
-                });
-            }
-
-            setupProtection() {
-                // Ensure overlay is activated for all potential screenshot scenarios
-                document.addEventListener('DOMContentLoaded', () => {
-                    this.overlay.style.display = 'none';
-                });
-
-                setInterval(() => {
-                    if (window.outerWidth - window.innerWidth > 200 ||
-                        window.outerHeight - window.innerHeight > 200) {
-                        this.activateProtection();
-                    }
-                }, 500);
-            }
+        function showOverlay() {
+            overlay.style.display = 'block';
         }
 
-        // Initialize protection
-        document.addEventListener('DOMContentLoaded', () => {
-            new AdvancedScreenshotProtection();
+        function hideOverlay() {
+            overlay.style.display = 'none';
+        }
+
+        // Detect screenshot keys and events
+        document.addEventListener('keydown', (e) => {
+            if (
+                e.key === 'PrintScreen' || 
+                (e.ctrlKey && e.shiftKey && e.key === 'S') || 
+                (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))
+            ) {
+                showOverlay();
+                setTimeout(hideOverlay, 1000);
+            }
         });
+
+        // Detect visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                showOverlay();
+            } else {
+                hideOverlay();
+            }
+        });
+
+        // Forcing consistent monitoring
+        setInterval(() => {
+            if (document.hidden) {
+                showOverlay();
+            }
+        }, 1000);
     </script>
 </body>
 </html>
