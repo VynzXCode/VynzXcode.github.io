@@ -51,32 +51,18 @@
 
         #protectionOverlay {
             position: fixed;
-            top: -100%;
-            left: -100%;
-            width: 300%;
-            height: 300%;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
             background: black;
             z-index: 2147483647;
             display: none;
             pointer-events: none;
-            transform: translateZ(0);
-            will-change: transform;
-            transition: none;
         }
 
         .screenshot-protected {
             position: relative;
-        }
-
-        .screenshot-protected::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: transparent;
-            z-index: 2147483645;
         }
 
         @media print {
@@ -112,65 +98,25 @@
             constructor() {
                 this.overlay = document.getElementById('protectionOverlay');
                 this.isProtecting = false;
-                this.protectionTimeout = null;
-                this.monitoringInterval = null;
                 this.setupProtection();
-                this.startConstantMonitoring();
+                this.startMonitoring();
             }
 
             activateProtection() {
                 if (!this.isProtecting) {
                     this.isProtecting = true;
                     this.overlay.style.display = 'block';
-
-                    // Rapidly toggle overlay to ensure it gets captured
-                    let toggleCount = 0;
-                    const rapidToggle = setInterval(() => {
-                        this.overlay.style.display = toggleCount % 2 === 0 ? 'none' : 'block';
-                        toggleCount++;
-                        if (toggleCount > 10) clearInterval(rapidToggle);
-                    }, 16);
-
-                    // Clear protection after 1 second
-                    clearTimeout(this.protectionTimeout);
-                    this.protectionTimeout = setTimeout(() => {
-                        this.deactivateProtection();
-                    }, 1000);
                 }
             }
 
             deactivateProtection() {
-                this.isProtecting = false;
-                this.overlay.style.display = 'none';
+                if (this.isProtecting) {
+                    this.isProtecting = false;
+                    this.overlay.style.display = 'none';
+                }
             }
 
-            startConstantMonitoring() {
-                if (this.monitoringInterval) clearInterval(this.monitoringInterval);
-
-                // Monitor every 16ms (60fps)
-                this.monitoringInterval = setInterval(() => {
-                    if (this.shouldActivateProtection()) {
-                        this.activateProtection();
-                    }
-                }, 16);
-            }
-
-            shouldActivateProtection() {
-                // Detect conditions that may indicate a screenshot
-                const conditions = [
-                    document.hidden,
-                    document.msHidden,
-                    document.webkitHidden,
-                    window.outerWidth - window.innerWidth > 200,
-                    window.outerHeight - window.innerHeight > 200,
-                    document.visibilityState === 'hidden'
-                ];
-
-                return conditions.some(condition => condition);
-            }
-
-            setupProtection() {
-                // Screenshot detection
+            startMonitoring() {
                 const events = [
                     'keydown', 'keyup', 'visibilitychange',
                     'webkitvisibilitychange', 'mozvisibilitychange',
@@ -180,12 +126,7 @@
 
                 events.forEach(event => {
                     document.addEventListener(event, (e) => {
-                        // Prevent default for certain events
-                        if (['contextmenu', 'selectstart', 'copy'].includes(e.type)) {
-                            e.preventDefault();
-                        }
-
-                        // Screenshot detection logic
+                        // Detect screenshot attempts
                         if (
                             (e.type === 'keydown' && (
                                 e.key === 'PrintScreen' ||
@@ -193,69 +134,53 @@
                                 (e.ctrlKey && e.shiftKey && e.key === 'S') ||
                                 (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))
                             )) ||
-                            (e.type === 'visibilitychange' && document.hidden) ||
-                            (e.type === 'touchstart' && e.touches.length >= 2)
+                            (e.type === 'visibilitychange' && document.hidden)
                         ) {
                             this.activateProtection();
                         }
                     }, true);
                 });
 
-                // Prevent various capture methods
-                document.addEventListener('keydown', e => {
-                    if (e.ctrlKey || e.metaKey) {
-                        if (['s', 'p', 'c', 'x', 'u', 'i'].includes(e.key.toLowerCase())) {
-                            e.preventDefault();
-                        }
+                document.addEventListener('keyup', (e) => {
+                    if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+                        this.activateProtection();
+                        setTimeout(() => this.deactivateProtection(), 1000);
                     }
                 });
 
-                // Mobile-specific detection
-                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    let lastVolume = null;
-                    let volumeTimeout;
+                window.addEventListener('blur', () => {
+                    this.activateProtection();
+                    setTimeout(() => this.deactivateProtection(), 1000);
+                });
 
-                    // Volume button detection
-                    window.addEventListener('volumechange', () => {
-                        const now = Date.now();
-                        if (lastVolume && now - lastVolume < 500) {
-                            this.activateProtection();
-                        }
-                        lastVolume = now;
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        this.activateProtection();
+                    } else {
+                        this.deactivateProtection();
+                    }
+                });
+            }
 
-                        clearTimeout(volumeTimeout);
-                        volumeTimeout = setTimeout(() => {
-                            lastVolume = null;
-                        }, 500);
-                    });
-                }
+            setupProtection() {
+                // Ensure overlay is activated for all potential screenshot scenarios
+                document.addEventListener('DOMContentLoaded', () => {
+                    this.overlay.style.display = 'none';
+                });
 
-                // MutationObserver to detect DOM changes
-                const observer = new MutationObserver(() => {
-                    if (this.shouldActivateProtection()) {
+                setInterval(() => {
+                    if (window.outerWidth - window.innerWidth > 200 ||
+                        window.outerHeight - window.innerHeight > 200) {
                         this.activateProtection();
                     }
-                });
-
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true
-                });
+                }, 500);
             }
         }
 
         // Initialize protection
         document.addEventListener('DOMContentLoaded', () => {
-            window.screenshotProtection = new AdvancedScreenshotProtection();
+            new AdvancedScreenshotProtection();
         });
-
-        // Ensure protection remains active
-        setInterval(() => {
-            if (window.screenshotProtection) {
-                window.screenshotProtection.startConstantMonitoring();
-            }
-        }, 100);
     </script>
 </body>
 </html>
