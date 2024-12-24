@@ -10,6 +10,10 @@
             padding: 20px;
             background: #fff;
             min-height: 100vh;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         .content {
@@ -24,9 +28,21 @@
             width: 100%;
             height: 100%;
             background: #000;
-            z-index: 9999;
+            z-index: 2147483647;
             display: none;
             pointer-events: none;
+            opacity: 1;
+            transition: opacity 0.1s ease;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #protectionOverlay {
+                visibility: visible;
+                display: block !important;
+            }
         }
     </style>
 </head>
@@ -45,92 +61,113 @@
             constructor() {
                 this.overlay = document.getElementById('protectionOverlay');
                 this.isProtecting = false;
-                this.setupListeners();
+                this.lastTouchStart = 0;
+                this.touchCount = 0;
+                this.setupProtection();
             }
 
-            showProtection() {
+            protect() {
                 if (!this.isProtecting) {
                     this.isProtecting = true;
                     this.overlay.style.display = 'block';
-                    
+                    this.overlay.style.opacity = '1';
+
+                    // Hapus overlay setelah 1 detik
                     setTimeout(() => {
-                        this.overlay.style.display = 'none';
-                        this.isProtecting = false;
+                        this.overlay.style.opacity = '0';
+                        setTimeout(() => {
+                            this.overlay.style.display = 'none';
+                            this.isProtecting = false;
+                        }, 100);
                     }, 1000);
                 }
             }
 
-            setupListeners() {
-                // Deteksi screenshot menggunakan clipboard
-                document.addEventListener('copy', (e) => {
-                    this.showProtection();
-                });
-
-                // Deteksi PrintScreen dan shortcut screenshot
-                window.addEventListener('keyup', (e) => {
+            setupProtection() {
+                // Windows PrintScreen detection
+                document.addEventListener('keydown', (e) => {
+                    // PrintScreen atau Windows + PrintScreen
                     if (e.key === 'PrintScreen' || 
                         e.code === 'PrintScreen' || 
-                        (e.key === 'KeyP' && e.ctrlKey) ||
-                        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))) {
-                        this.showProtection();
+                        (e.key === 'PrintScreen' && e.getModifierState('Meta'))) {
+                        e.preventDefault();
+                        this.protect();
                     }
                 });
 
-                window.addEventListener('keydown', (e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.shiftKey && 
-                        (e.key === 'S' || e.code === 'KeyS' || 
-                         e.key === '3' || e.key === '4')) {
-                        this.showProtection();
-                    }
-                });
-
-                // Deteksi screenshot mobile
+                // Android 3-finger swipe & volume+power detection
+                let touchStartY = 0;
                 let touchStartTime = 0;
-                let touchCount = 0;
 
                 document.addEventListener('touchstart', (e) => {
-                    touchCount = e.touches.length;
+                    this.touchCount = e.touches.length;
+                    touchStartY = e.touches[0].clientY;
                     touchStartTime = Date.now();
-                });
-
-                document.addEventListener('touchend', () => {
-                    const touchDuration = Date.now() - touchStartTime;
-                    if ((touchCount >= 2 && touchDuration < 500) || 
-                        (touchCount === 3)) {
-                        this.showProtection();
+                    
+                    // Deteksi multi-touch (3 jari)
+                    if (this.touchCount >= 3) {
+                        this.protect();
                     }
                 });
 
-                // Tambahan deteksi untuk browser modern
-                if (navigator.permissions && navigator.permissions.query) {
-                    navigator.permissions.query({ name: 'screenshots' }).then(result => {
-                        result.addEventListener('change', () => {
-                            if (result.state === 'granted') {
-                                this.showProtection();
-                            }
-                        });
-                    }).catch(() => {
-                        // Browser tidak mendukung deteksi screenshot permissions
-                    });
-                }
+                document.addEventListener('touchmove', (e) => {
+                    if (this.touchCount >= 3) {
+                        const deltaY = e.touches[0].clientY - touchStartY;
+                        if (Math.abs(deltaY) > 50) {
+                            this.protect();
+                        }
+                    }
+                });
 
-                // Deteksi window blur (saat user beralih ke tool screenshot)
+                // Volume + Power button detection
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'hidden' && 
+                        Date.now() - touchStartTime < 1000) {
+                        this.protect();
+                    }
+                });
+
+                // iPhone screenshot detection
+                let lastBlurTime = 0;
                 window.addEventListener('blur', () => {
-                    if (document.hasFocus()) {
-                        this.showProtection();
+                    lastBlurTime = Date.now();
+                    if (!document.hidden) {
+                        this.protect();
                     }
                 });
 
-                // Mencegah pemilihan teks (optional)
-                document.addEventListener('selectstart', (e) => {
-                    e.preventDefault();
+                window.addEventListener('focus', () => {
+                    if (Date.now() - lastBlurTime < 1000) {
+                        this.protect();
+                    }
                 });
+
+                // Prevent standard ways to capture content
+                document.addEventListener('contextmenu', e => e.preventDefault());
+                document.addEventListener('selectstart', e => e.preventDefault());
+                document.addEventListener('copy', e => e.preventDefault());
+                
+                // Mencegah drag gambar
+                document.addEventListener('dragstart', e => e.preventDefault());
             }
         }
 
-        // Inisialisasi protection
+        // Initialize protection
         document.addEventListener('DOMContentLoaded', () => {
             new ScreenshotProtection();
+            
+            // Tambahan untuk Chrome di Windows
+            if (navigator.userAgent.includes('Chrome') && 
+                navigator.platform.includes('Win')) {
+                document.addEventListener('keyup', (e) => {
+                    if (e.key === 'PrintScreen' || 
+                        e.code === 'PrintScreen' || 
+                        (e.key === 'PrintScreen' && e.getModifierState('Meta'))) {
+                        const protection = new ScreenshotProtection();
+                        protection.protect();
+                    }
+                });
+            }
         });
     </script>
 </body>
